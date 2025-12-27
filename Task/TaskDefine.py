@@ -9,24 +9,32 @@ from pynput.keyboard import Key
 
 @unique
 class TaskType(IntEnum):
-    DEFAULT = auto()
+    DEFAULT = 0
     SLEEP = auto()
+    MOUSE_MOVE = auto()
     MOUSE_LEFT_CLICK = auto()
-    MOUSE_RIGHT_CLICK = auto()
     MOUSE_LEFT_DOUBLE_CLICK = auto()
+    MOUSE_RIGHT_CLICK = auto()
     MOUSE_RIGHT_DOUBLE_CLICK = auto()
-    MOUSE_MODE = auto()
+    MOUSE_LEFT_PRESS = auto()
+    MOUSE_LEFT_RELEASE = auto()
+    MOUSE_RIGHT_PRESS = auto()
+    MOUSE_RIGHT_RELEASE = auto()
+    MOUSE_SCROLL = auto()
 
 
-class TaskCommon:
+class Task:
     _mouse_controller: Union[MouseController, None] = None
     _keyboard_controller: Union[KeyboardController, None] = None
 
     def __init__(self, task_type: TaskType):
         self._type = task_type
 
-    def execute(self):
-        pass
+    def __repr__(self) -> str:
+        return f"[{type(self).__name__}({hex(id(self))})]"
+
+    def execute(self) -> bool:
+        return True
 
     def set_mouse_controller(self, controller: MouseController):
         self._mouse_controller = controller
@@ -41,52 +49,210 @@ class TaskCommon:
         pass
 
 
-class TaskSleep(TaskCommon):
-    def __init__(self):
+class TaskSleep(Task):
+    def __init__(self, sleep_time_sec: int = 0):
         super().__init__(TaskType.SLEEP)
+        self._sleep_time_sec = sleep_time_sec
+
+    def __repr__(self) -> str:
+        return f"[{type(self).__name__}({hex(id(self))})] <{self._sleep_time_sec} sec>"
 
     def execute(self):
-        pass
+        time.sleep(self._sleep_time_sec)
 
 
-class TaskMouseLeftClick(TaskCommon):
-    def __init__(self, pos_x: int, pos_y: int, count: int):
-        super().__init__(TaskType.MOUSE_LEFT_CLICK)
+class TaskMouseCommon(Task):
+    def __init__(self, task_type: TaskType, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(task_type)
         self.pos_x = pos_x
         self.pos_y = pos_y
-        self.count = count
 
-    def execute(self):
-        ctrl = MouseController()
-        ctrl.position = (self.pos_x, self.pos_x)
-        ctrl.click(Button.left, self.count)
+    def __repr__(self) -> str:
+        return f"[{type(self).__name__}({hex(id(self))})] <x: {self.pos_x}, y: {self.pos_y}>"
 
     def to_dict(self) -> dict:
-        obj = super().to_dict()
-        obj["pos_x"] = self.pos_x
-        obj["pos_y"] = self.pos_y
-        obj["count"] = self.count
-        return obj
+        cfg = super().to_dict()
+        cfg["pos_x"] = self.pos_x
+        cfg["pos_y"] = self.pos_y
+        return cfg
 
     def from_dict(self, cfg: dict):
-        pass
+        self.pos_x = cfg.get("pos_x", 0)
+        self.pos_y = cfg.get("pos_y", 0)
+
+    def move(self) -> bool:
+        if self._mouse_controller is None:
+            return False
+        while self._mouse_controller.position != (self.pos_x, self.pos_y):
+            self._mouse_controller.position = self.pos_x, self.pos_y
+        return True
 
 
-class TaskMouseRightClick(TaskCommon):
+class TaskMouseLeftClick(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(TaskType.MOUSE_LEFT_CLICK, pos_x, pos_y)
+
+    def execute(self) -> bool:
+        if self._mouse_controller is None:
+            return False
+        try:
+            self.move()
+            self._mouse_controller.click(Button.left, 1)
+        except Exception as e:
+            return False
+        return True
+
+
+class TaskMouseRightClick(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(TaskType.MOUSE_RIGHT_CLICK, pos_x, pos_y)
+
     def execute(self):
+        if self._mouse_controller is None:
+            return False
+        try:
+            self.move()
+            self._mouse_controller.click(Button.right, 1)
+        except Exception as e:
+            return False
+        return True
+
+
+class TaskMouseLeftDoubleClick(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(TaskType.MOUSE_LEFT_DOUBLE_CLICK, pos_x, pos_y)
+
+    def execute(self) -> bool:
+        if self._mouse_controller is None:
+            return False
+        try:
+            self.move()
+            self._mouse_controller.click(Button.left, 2)
+        except Exception as e:
+            return False
+        return True
+
+
+class TaskMouseRightDoubleClick(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(TaskType.MOUSE_RIGHT_DOUBLE_CLICK, pos_x, pos_y)
+
+    def execute(self) -> bool:
+        if self._mouse_controller is None:
+            return False
+        try:
+            self.move()
+            self._mouse_controller.click(Button.right, 2)
+        except Exception as e:
+            return False
+        return True
+
+
+class TaskMouseMove(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(TaskType.MOUSE_MOVE, pos_x, pos_y)
+
+    def execute(self) -> bool:
+        return self.move()
+
+
+class TaskMouseLeftPress(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(TaskType.MOUSE_LEFT_PRESS, pos_x, pos_y)
+
+    def execute(self) -> bool:
+        if self._mouse_controller is None:
+            return False
+        try:
+            self.move()
+            self._mouse_controller.press(Button.left)
+        except Exception as e:
+            return False
+        return True
+
+
+class TaskMouseLeftRelease(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(TaskType.MOUSE_LEFT_RELEASE, pos_x, pos_y)
+
+    def execute(self) -> bool:
+        if self._mouse_controller is None:
+            return False
+        try:
+            self.move()
+            self._mouse_controller.release(Button.left)
+        except Exception as e:
+            return False
+        return True
+
+
+class TaskMouseRightPress(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(TaskType.MOUSE_RIGHT_PRESS, pos_x, pos_y)
+
+    def execute(self) -> bool:
+        if self._mouse_controller is None:
+            return False
+        try:
+            self.move()
+            self._mouse_controller.press(Button.right)
+        except Exception as e:
+            return False
+        return True
+
+
+class TaskMouseRightRelease(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(TaskType.MOUSE_RIGHT_RELEASE, pos_x, pos_y)
+
+    def execute(self) -> bool:
+        if self._mouse_controller is None:
+            return False
+        try:
+            self.move()
+            self._mouse_controller.release(Button.right)
+        except Exception as e:
+            return False
+        return True
+
+
+class TaskMouseScroll(TaskMouseCommon):
+    def __init__(self, pos_x: int = 0, pos_y: int = 0, dx: int = 0, dy: int = 0):
+        super().__init__(TaskType.MOUSE_SCROLL, pos_x, pos_y)
+        self.dx = dx
+        self.dy = dy
+
+    def __repr__(self) -> str:
+        return ""
+
+    def execute(self) -> bool:
         pass
 
 
-class TaskMouseLeftDoubleClick(TaskCommon):
-    def execute(self):
-        pass
-
-
-class TaskMouseRightDoubleClick(TaskCommon):
-    def execute(self):
-        pass
-
-
-class TaskMouseMove(TaskCommon):
-    def execute(self):
-        pass
+def load_task_from_dict(cfg: dict) -> Task:
+    task_type = TaskType(cfg.get("type", 0))
+    task = Task(TaskType.DEFAULT)
+    if task_type == TaskType.SLEEP:
+        task = TaskSleep()
+    elif task_type == TaskType.MOUSE_LEFT_CLICK:
+        task = TaskMouseLeftClick()
+    elif task_type == TaskType.MOUSE_RIGHT_CLICK:
+        task = TaskMouseRightClick()
+    elif task_type == TaskType.MOUSE_LEFT_DOUBLE_CLICK:
+        task = TaskMouseLeftDoubleClick()
+    elif task_type == TaskType.MOUSE_RIGHT_DOUBLE_CLICK:
+        task = TaskMouseRightDoubleClick()
+    elif task_type == TaskType.MOUSE_MOVE:
+        task = TaskMouseMove()
+    elif task_type == TaskType.MOUSE_LEFT_PRESS:
+        task = TaskMouseLeftPress()
+    elif task_type == TaskType.MOUSE_LEFT_RELEASE:
+        task = TaskMouseLeftRelease()
+    elif task_type == TaskType.MOUSE_RIGHT_PRESS:
+        task = TaskMouseRightPress()
+    elif task_type == TaskType.MOUSE_RIGHT_RELEASE:
+        task = TaskMouseRightRelease()
+    elif task_type == TaskType.MOUSE_SCROLL:
+        task = TaskMouseScroll()
+    task.from_dict(cfg)
+    return task
