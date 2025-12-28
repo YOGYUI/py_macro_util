@@ -5,4 +5,5 @@ sys.path.extend([CUR_PATH])
 sys.path = list(set(sys.path))
 
 from Callback import Callback
-from ErrorHandler import ErrorHandler
+from Logger import GetLogger
+from Functions import ensure_path_exist

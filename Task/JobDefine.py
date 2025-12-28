@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from typing import List, Union
 from threading import Thread
 from pynput.mouse import Controller as MouseController
@@ -7,9 +8,10 @@ from pynput.keyboard import Controller as KeyboardController
 from TaskDefine import (Task, load_task_from_dict)
 CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Task
 PROJ_PATH = os.path.dirname(CUR_PATH)
+CFG_PATH = os.path.join(PROJ_PATH, "Config")
 sys.path.extend([CUR_PATH, PROJ_PATH])
 sys.path = list(set(sys.path))
-from Util import Callback
+from Util import Callback, GetLogger
 
 
 class ThreadExecute(Thread):
@@ -25,14 +27,13 @@ class ThreadExecute(Thread):
     def run(self):
         index: int = 0
         seq_count: int = 0
-        print("Started")
+        GetLogger().info("Started", self)
         while True:
             if not self._keep_alive:
                 break
             try:
                 if index < len(self._task_list):
                     task = self._task_list[index]
-                    print(f"{task} executing")
                     self.sig_current_task_index.emit(index)
                     task.execute()
                 index += 1
@@ -43,8 +44,8 @@ class ThreadExecute(Thread):
                         if seq_count >= self._repeat_count:
                             break
             except Exception as e:
-                print(f"Exception: {e}")
-        print("Terminated")
+                GetLogger().critical(f"Exception: {e}", self)
+        GetLogger().info("Terminated", self)
         self.sig_terminated.emit()
 
     def stop(self):
@@ -61,6 +62,7 @@ class MacroJob:
         self._name = name
         self._task_list: List[Task] = list()
         self._repeat_count: int = 1
+        self.sig_task_list_changed = Callback()
 
     def set_mouse_controller(self, controller: MouseController):
         self._mouse_controller = controller
@@ -111,10 +113,18 @@ class MacroJob:
         self.refresh_task()
 
     def save(self, file_path: str):
-        pass
+        try:
+            with open(file_path, "w") as fp:
+                json.dump(self.to_dict(), fp, indent=4)
+        except Exception as e:
+            GetLogger().critical(f"failed to save: {e}", self)
 
     def load(self, file_path: str):
-        pass
+        try:
+            with open(file_path, "r") as fp:
+                self.from_dict(json.load(fp))
+        except Exception as e:
+            GetLogger().critical(f"failed to load: {e}", self)
 
     def add_task(self, task: Task):
         self._task_list.append(task)
@@ -127,28 +137,18 @@ class MacroJob:
             except Exception:
                 return
         self._task_list.remove(task)
+        self.refresh_task()
 
     def clear_task(self):
         self._task_list.clear()
+        self.refresh_task()
 
     def refresh_task(self):
         for task in self._task_list:
             task.set_mouse_controller(self._mouse_controller)
             task.set_keyboard_controller(self._keyboard_controller)
+        self.sig_task_list_changed.emit()
 
-
-if __name__ == "__main__":
-    from TaskDefine import TaskMouseLeftClick, TaskMouseLeftDoubleClick, TaskSleep
-
-    job_ = MacroJob("test")
-    job_.set_mouse_controller(MouseController())
-    job_.set_keyboard_controller(KeyboardController())
-    job_.add_task(TaskMouseLeftClick(300, 300))
-    job_.add_task(TaskSleep(1))
-    job_.add_task(TaskMouseLeftClick(300, 400))
-    job_.add_task(TaskSleep(1))
-    job_.add_task(TaskMouseLeftDoubleClick(300, 500))
-    job_.add_task(TaskSleep(1))
-    job_.execute()
-    while job_.is_executing():
-        pass
+    @property
+    def task_list(self) -> List[Task]:
+        return self._task_list
