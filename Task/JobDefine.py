@@ -8,17 +8,17 @@ from pynput.keyboard import Controller as KeyboardController
 from TaskDefine import (Task, load_task_from_dict)
 CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Task
 PROJ_PATH = os.path.dirname(CUR_PATH)
-CFG_PATH = os.path.join(PROJ_PATH, "Config")
 sys.path.extend([CUR_PATH, PROJ_PATH])
 sys.path = list(set(sys.path))
 from Util import Callback, GetLogger
 
 
 class ThreadExecute(Thread):
+    _keep_alive: bool = True
+
     def __init__(self, task_list: List[Task], repeat_count: int):
         Thread.__init__(self)
         self.daemon = True
-        self._keep_alive: bool = True
         self._task_list = task_list
         self._repeat_count = repeat_count
         self.sig_terminated = Callback()
@@ -81,6 +81,9 @@ class MacroJob:
     def stop(self):
         self._stop_thread_execute()
 
+    def is_executing(self) -> bool:
+        return self._thread_execute is not None and self._thread_execute.is_alive()
+
     def _start_thread_execute(self):
         if self._thread_execute is None:
             self._thread_execute = ThreadExecute(self._task_list, self._repeat_count)
@@ -95,9 +98,6 @@ class MacroJob:
     def _on_thread_execute_terminated(self):
         del self._thread_execute
         self._thread_execute = None
-
-    def is_executing(self) -> bool:
-        return self._thread_execute is not None and self._thread_execute.is_alive()
 
     def to_dict(self) -> dict:
         cfg = {
@@ -116,6 +116,7 @@ class MacroJob:
         try:
             with open(file_path, "w") as fp:
                 json.dump(self.to_dict(), fp, indent=4)
+            GetLogger().info(f"Saved job to file ({file_path})", self)
         except Exception as e:
             GetLogger().critical(f"failed to save: {e}", self)
 
@@ -123,6 +124,7 @@ class MacroJob:
         try:
             with open(file_path, "r") as fp:
                 self.from_dict(json.load(fp))
+            GetLogger().info(f"Loaded job from file ({file_path})", self)
         except Exception as e:
             GetLogger().critical(f"failed to load: {e}", self)
 

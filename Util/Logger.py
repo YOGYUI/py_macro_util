@@ -42,7 +42,10 @@ class Logger:
     @staticmethod
     def _make_message(msg: str, obj: object = None) -> str:
         if obj is not None:
-            msg = f"[{type(obj).__name__}({hex(id(obj))})] " + msg
+            if isinstance(obj, str):
+                msg = f"[{obj}] " + msg
+            else:
+                msg = f"[{type(obj).__name__}({hex(id(obj))})] " + msg
         return msg
 
     def debug(self, msg: str, obj: object = None):
