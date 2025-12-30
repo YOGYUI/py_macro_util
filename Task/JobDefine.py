@@ -62,7 +62,9 @@ class MacroJob:
         self._name = name
         self._task_list: List[Task] = list()
         self._repeat_count: int = 1
+
         self.sig_task_list_changed = Callback()
+        self.sig_current_executing_task_index = Callback(int)
 
     def set_mouse_controller(self, controller: MouseController):
         self._mouse_controller = controller
@@ -88,7 +90,7 @@ class MacroJob:
         if self._thread_execute is None:
             self._thread_execute = ThreadExecute(self._task_list, self._repeat_count)
             self._thread_execute.sig_terminated.connect(self._on_thread_execute_terminated)
-            # self._thread_execute.sig_current_task_index.connect()
+            self._thread_execute.sig_current_task_index.connect(self._on_thread_execute_current_index)
             self._thread_execute.start()
 
     def _stop_thread_execute(self):
@@ -99,15 +101,20 @@ class MacroJob:
         del self._thread_execute
         self._thread_execute = None
 
+    def _on_thread_execute_current_index(self, index: int):
+        self.sig_current_executing_task_index.emit(index)
+
     def to_dict(self) -> dict:
         cfg = {
             "name": self._name,
+            "repeat_count": self._repeat_count,
             "task_list": [task.to_dict() for task in self._task_list]
         }
         return cfg
 
     def from_dict(self, cfg: dict):
         self._name = cfg.get("name", "no_named")
+        self._repeat_count = cfg.get("repeat_count", 1)
         self.clear_task()
         self._task_list = [load_task_from_dict(x) for x in cfg.get("task_list", [])]
         self.refresh_task()

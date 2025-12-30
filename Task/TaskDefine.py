@@ -36,7 +36,8 @@ class Task:
     _mouse_controller: Union[MouseController, None] = None
     _keyboard_controller: Union[KeyboardController, None] = None
 
-    def __init__(self, task_type: TaskType):
+    def __init__(self, name: str, task_type: TaskType = TaskType.DEFAULT):
+        self.name = name
         self._type = task_type
 
     def __repr__(self) -> str:
@@ -52,15 +53,22 @@ class Task:
         self._keyboard_controller = controller
 
     def to_dict(self) -> dict:
-        return {"type": self._type.value}
+        return {
+            "name": self.name,
+            "type": self._type.value
+        }
 
     def from_dict(self, cfg: dict):
-        pass
+        self.name = cfg.get("name", "no_named")
+
+    @property
+    def type(self) -> TaskType:
+        return self._type
 
 
 class TaskSleep(Task):
-    def __init__(self, sleep_time_sec: int = 0):
-        super().__init__(TaskType.SLEEP)
+    def __init__(self, name: str, sleep_time_sec: int = 0):
+        super().__init__(name, TaskType.SLEEP)
         self.sleep_time_sec = sleep_time_sec
 
     def __repr__(self) -> str:
@@ -70,10 +78,19 @@ class TaskSleep(Task):
         GetLogger().info(f"executing <{self.sleep_time_sec} sec>", self)
         time.sleep(self.sleep_time_sec)
 
+    def to_dict(self) -> dict:
+        cfg = super().to_dict()
+        cfg["sleep_time_sec"] = self.sleep_time_sec
+        return cfg
+
+    def from_dict(self, cfg: dict):
+        super().from_dict(cfg)
+        self.sleep_time_sec = cfg.get("sleep_time_sec", 0)
+
 
 class TaskMouseCommon(Task):
-    def __init__(self, task_type: TaskType, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(task_type)
+    def __init__(self, name: str, task_type: TaskType, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, task_type)
         self.pos_x = pos_x
         self.pos_y = pos_y
 
@@ -106,8 +123,8 @@ class TaskMouseCommon(Task):
 
 
 class TaskMouseLeftClick(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(TaskType.MOUSE_LEFT_CLICK, pos_x, pos_y)
+    def __init__(self, name: str, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, TaskType.MOUSE_LEFT_CLICK, pos_x, pos_y)
 
     def execute(self) -> bool:
         if self._mouse_controller is None:
@@ -124,8 +141,8 @@ class TaskMouseLeftClick(TaskMouseCommon):
 
 
 class TaskMouseRightClick(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(TaskType.MOUSE_RIGHT_CLICK, pos_x, pos_y)
+    def __init__(self, name: str, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, TaskType.MOUSE_RIGHT_CLICK, pos_x, pos_y)
 
     def execute(self):
         if self._mouse_controller is None:
@@ -142,8 +159,8 @@ class TaskMouseRightClick(TaskMouseCommon):
 
 
 class TaskMouseLeftDoubleClick(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(TaskType.MOUSE_LEFT_DOUBLE_CLICK, pos_x, pos_y)
+    def __init__(self, name: str, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, TaskType.MOUSE_LEFT_DOUBLE_CLICK, pos_x, pos_y)
 
     def execute(self) -> bool:
         if self._mouse_controller is None:
@@ -160,8 +177,8 @@ class TaskMouseLeftDoubleClick(TaskMouseCommon):
 
 
 class TaskMouseRightDoubleClick(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(TaskType.MOUSE_RIGHT_DOUBLE_CLICK, pos_x, pos_y)
+    def __init__(self, name: str, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, TaskType.MOUSE_RIGHT_DOUBLE_CLICK, pos_x, pos_y)
 
     def execute(self) -> bool:
         if self._mouse_controller is None:
@@ -178,8 +195,8 @@ class TaskMouseRightDoubleClick(TaskMouseCommon):
 
 
 class TaskMouseMove(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(TaskType.MOUSE_MOVE, pos_x, pos_y)
+    def __init__(self, name: str, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, TaskType.MOUSE_MOVE, pos_x, pos_y)
 
     def execute(self) -> bool:
         GetLogger().info(f"executing <x: {self.pos_x}, y: {self.pos_y}>", self)
@@ -187,8 +204,8 @@ class TaskMouseMove(TaskMouseCommon):
 
 
 class TaskMouseLeftPress(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(TaskType.MOUSE_LEFT_PRESS, pos_x, pos_y)
+    def __init__(self, name: str, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, TaskType.MOUSE_LEFT_PRESS, pos_x, pos_y)
 
     def execute(self) -> bool:
         if self._mouse_controller is None:
@@ -205,8 +222,8 @@ class TaskMouseLeftPress(TaskMouseCommon):
 
 
 class TaskMouseLeftRelease(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(TaskType.MOUSE_LEFT_RELEASE, pos_x, pos_y)
+    def __init__(self, name: str, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, TaskType.MOUSE_LEFT_RELEASE, pos_x, pos_y)
 
     def execute(self) -> bool:
         if self._mouse_controller is None:
@@ -223,8 +240,8 @@ class TaskMouseLeftRelease(TaskMouseCommon):
 
 
 class TaskMouseRightPress(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(TaskType.MOUSE_RIGHT_PRESS, pos_x, pos_y)
+    def __init__(self, name: str, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, TaskType.MOUSE_RIGHT_PRESS, pos_x, pos_y)
 
     def execute(self) -> bool:
         if self._mouse_controller is None:
@@ -241,8 +258,8 @@ class TaskMouseRightPress(TaskMouseCommon):
 
 
 class TaskMouseRightRelease(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0):
-        super().__init__(TaskType.MOUSE_RIGHT_RELEASE, pos_x, pos_y)
+    def __init__(self, name: str, pos_x: int = 0, pos_y: int = 0):
+        super().__init__(name, TaskType.MOUSE_RIGHT_RELEASE, pos_x, pos_y)
 
     def execute(self) -> bool:
         if self._mouse_controller is None:
@@ -259,8 +276,8 @@ class TaskMouseRightRelease(TaskMouseCommon):
 
 
 class TaskMouseScroll(TaskMouseCommon):
-    def __init__(self, pos_x: int = 0, pos_y: int = 0, dx: int = 0, dy: int = 0):
-        super().__init__(TaskType.MOUSE_SCROLL, pos_x, pos_y)
+    def __init__(self, name: str, dx: int = 0, dy: int = 0):
+        super().__init__(name, TaskType.MOUSE_SCROLL, 0, 0)
         self.dx = dx
         self.dy = dy
 
@@ -293,28 +310,28 @@ class TaskMouseScroll(TaskMouseCommon):
 
 def load_task_from_dict(cfg: dict) -> Task:
     task_type = TaskType(cfg.get("type", 0))
-    task = Task(TaskType.DEFAULT)
+    task = Task("no_named", TaskType.DEFAULT)
     if task_type == TaskType.SLEEP:
-        task = TaskSleep()
+        task = TaskSleep("no_named")
     elif task_type == TaskType.MOUSE_LEFT_CLICK:
-        task = TaskMouseLeftClick()
+        task = TaskMouseLeftClick("no_named")
     elif task_type == TaskType.MOUSE_RIGHT_CLICK:
-        task = TaskMouseRightClick()
+        task = TaskMouseRightClick("no_named")
     elif task_type == TaskType.MOUSE_LEFT_DOUBLE_CLICK:
-        task = TaskMouseLeftDoubleClick()
+        task = TaskMouseLeftDoubleClick("no_named")
     elif task_type == TaskType.MOUSE_RIGHT_DOUBLE_CLICK:
-        task = TaskMouseRightDoubleClick()
+        task = TaskMouseRightDoubleClick("no_named")
     elif task_type == TaskType.MOUSE_MOVE:
-        task = TaskMouseMove()
+        task = TaskMouseMove("no_named")
     elif task_type == TaskType.MOUSE_LEFT_PRESS:
-        task = TaskMouseLeftPress()
+        task = TaskMouseLeftPress("no_named")
     elif task_type == TaskType.MOUSE_LEFT_RELEASE:
-        task = TaskMouseLeftRelease()
+        task = TaskMouseLeftRelease("no_named")
     elif task_type == TaskType.MOUSE_RIGHT_PRESS:
-        task = TaskMouseRightPress()
+        task = TaskMouseRightPress("no_named")
     elif task_type == TaskType.MOUSE_RIGHT_RELEASE:
-        task = TaskMouseRightRelease()
+        task = TaskMouseRightRelease("no_named")
     elif task_type == TaskType.MOUSE_SCROLL:
-        task = TaskMouseScroll()
+        task = TaskMouseScroll("no_named")
     task.from_dict(cfg)
     return task

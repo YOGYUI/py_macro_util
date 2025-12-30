@@ -68,6 +68,7 @@ class AppCore:
         self.load_config()
 
         self.sig_monitor_result = Callback(dict)
+        self.sig_job_task_list_changed = Callback()
 
         self._mouse_controller = MouseController()
         self._keyboard_controller = KeyboardController()
@@ -77,7 +78,7 @@ class AppCore:
         self._job = MacroJob("no_named")
         self._job.set_mouse_controller(self._mouse_controller)
         self._job.set_keyboard_controller(self._keyboard_controller)
-        # self._job.sig_task_list_changed
+        self._job.sig_task_list_changed.connect(self.sig_job_task_list_changed.emit)
         self._default_job_file_path = os.path.join(CFG_PATH, "default_job.json")
         if not os.path.isfile(self._default_job_file_path):
             self._job.save(self._default_job_file_path)
