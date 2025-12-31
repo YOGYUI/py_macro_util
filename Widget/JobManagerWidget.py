@@ -3,10 +3,12 @@ import sys
 from functools import partial
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import (QWidget, QPushButton, QComboBox,
-                               QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
+from PySide6.QtWidgets import (QWidget, QPushButton, QComboBox, QLineEdit,
+                               QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QAbstractItemDelegate,
                                QVBoxLayout, QHBoxLayout, QSizePolicy)
-CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Task
+from numpy.lib.recfunctions import join_by
+
+CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Widget
 PROJ_PATH = os.path.dirname(CUR_PATH)
 sys.path.extend([CUR_PATH, PROJ_PATH])
 sys.path = list(set(sys.path))
@@ -90,6 +92,7 @@ class JobManagerWidget(QWidget):
         self._table_task_list.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table_task_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table_task_list.itemSelectionChanged.connect(self._onTableTaskListItemSelectionChanged)
+        self._table_task_list.closeEditor = self._onTableTaskListCloseEditor
 
     def setCore(self, core: AppCore):
         self._core = core
@@ -133,7 +136,7 @@ class JobManagerWidget(QWidget):
 
     def _onClickBtnAddTask(self):
         job = self._core.job
-        job.add_task(TaskSleep("delay for 1 sec", 1))
+        job.add_task(TaskSleep("delay", 1))
         # todo: toggle add task job window?
 
     def _onClickBtnRemoveTask(self):
@@ -144,12 +147,20 @@ class JobManagerWidget(QWidget):
             job.remove_task(task)
 
     def _onClickBtnMoveTaskUp(self):
-        # switch task sequence
-        pass
+        job = self._core.job
+        idx1 = self._current_selected_task_index - 1
+        idx2 = self._current_selected_task_index
+        if 0 <= idx1:
+            job.switch_task(idx1, idx2)
+            self._table_task_list.selectRow(self._current_selected_task_index - 1)
 
     def _onClickBtnMoveTaskDown(self):
-        # switch task sequence
-        pass
+        job = self._core.job
+        idx1 = self._current_selected_task_index
+        idx2 = self._current_selected_task_index + 1
+        if idx1 < len(job.task_list) - 1:
+            job.switch_task(idx1, idx2)
+            self._table_task_list.selectRow(self._current_selected_task_index + 1)
 
     def _onClickBtnClearTask(self):
         job = self._core.job
@@ -166,11 +177,17 @@ class JobManagerWidget(QWidget):
         if self._current_selected_task_index != index:
             pass
         self._current_selected_task_index = index
-        print(f"current selected task index: {self._current_selected_task_index}")
+
+    def _onTableTaskListCloseEditor(self, editor: QLineEdit, hint: QAbstractItemDelegate.EndEditHint):
+        if hint == QAbstractItemDelegate.EndEditHint.SubmitModelCache:
+            text = editor.text()
+            job = self._core.job
+            job.set_task_name(self._current_selected_task_index, text)
+        QTableWidget.closeEditor(self._table_task_list, editor, hint)
 
     def _onComboTaskTypeIndexChanged(self, task_index: int, combo_index: int):
-        # change task instance!
         job = self._core.job
-        task_list = job.task_list
-        task = task_list[task_index]
-        print(task_index, combo_index)
+        task = job.task_list[task_index]
+        if task.type.value != combo_index + 1:
+            new_task = create_task(TaskType(combo_index + 1))
+            job.replace_task(task_index, new_task)

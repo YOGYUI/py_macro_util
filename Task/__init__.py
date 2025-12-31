@@ -5,7 +5,7 @@ sys.path.extend([CUR_PATH])
 sys.path = list(set(sys.path))
 
 from JobDefine import MacroJob
-from TaskDefine import (Task, TaskType, load_task_from_dict, TaskSleep)
+from TaskDefine import (Task, TaskType, load_task_from_dict, create_task, TaskSleep)
 from TaskDefine import (TaskMouseMove, TaskMouseLeftClick, TaskMouseRightClick,
                         TaskMouseLeftDoubleClick, TaskMouseRightDoubleClick,
                         TaskMouseLeftPress, TaskMouseLeftRelease,

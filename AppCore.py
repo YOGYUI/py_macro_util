@@ -79,16 +79,14 @@ class AppCore:
         self._job.set_mouse_controller(self._mouse_controller)
         self._job.set_keyboard_controller(self._keyboard_controller)
         self._job.sig_task_list_changed.connect(self.sig_job_task_list_changed.emit)
-        self._default_job_file_path = os.path.join(CFG_PATH, "default_job.json")
-        if not os.path.isfile(self._default_job_file_path):
-            self._job.save(self._default_job_file_path)
-        self._job.load(self._default_job_file_path)
+        self._job.load()
 
         self._start_thread_monitor()
 
     def release(self):
         self._keyboard_listner.stop()
         self._stop_thread_monitor()
+        self._job.save()
         self.save_config()
 
     def load_config(self):
@@ -106,6 +104,13 @@ class AppCore:
                 json.dump(self._config, fp, indent=4)
         except Exception as e:
             GetLogger().critical(f"failed to save config: {e}", self)
+
+    def load_job_file(self, file_path: str):
+        self._job.set_file_path(file_path)
+        self._job.load()
+
+    def save_job_file(self, file_path: str):
+        self._job.save_as(file_path)
 
     def _start_thread_monitor(self):
         if self._thread_monitor is None:

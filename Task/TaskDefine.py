@@ -37,7 +37,7 @@ class Task:
     _keyboard_controller: Union[KeyboardController, None] = None
 
     def __init__(self, name: str, task_type: TaskType = TaskType.DEFAULT):
-        self.name = name
+        self._name = name
         self._type = task_type
 
     def __repr__(self) -> str:
@@ -54,16 +54,25 @@ class Task:
 
     def to_dict(self) -> dict:
         return {
-            "name": self.name,
+            "name": self._name,
             "type": self._type.value
         }
 
     def from_dict(self, cfg: dict):
-        self.name = cfg.get("name", "no_named")
+        self._name = cfg.get("name", self._name)
 
     @property
     def type(self) -> TaskType:
         return self._type
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, name: str):
+        self._name = name
+        GetLogger().info(f"Changed name as <{self._name}>", self)
 
 
 class TaskSleep(Task):
@@ -309,29 +318,38 @@ class TaskMouseScroll(TaskMouseCommon):
 
 
 def load_task_from_dict(cfg: dict) -> Task:
-    task_type = TaskType(cfg.get("type", 0))
     task = Task("no_named", TaskType.DEFAULT)
+    try:
+        task_type = TaskType(cfg.get("type", 0))
+    except Exception as e:
+        GetLogger().critical(f"exception while loading task from dict: {e}")
+        return task
+
     if task_type == TaskType.SLEEP:
-        task = TaskSleep("no_named")
+        task = TaskSleep("delay")
     elif task_type == TaskType.MOUSE_LEFT_CLICK:
-        task = TaskMouseLeftClick("no_named")
+        task = TaskMouseLeftClick("left click")
     elif task_type == TaskType.MOUSE_RIGHT_CLICK:
-        task = TaskMouseRightClick("no_named")
+        task = TaskMouseRightClick("right click")
     elif task_type == TaskType.MOUSE_LEFT_DOUBLE_CLICK:
-        task = TaskMouseLeftDoubleClick("no_named")
+        task = TaskMouseLeftDoubleClick("left double click")
     elif task_type == TaskType.MOUSE_RIGHT_DOUBLE_CLICK:
-        task = TaskMouseRightDoubleClick("no_named")
+        task = TaskMouseRightDoubleClick("right double click")
     elif task_type == TaskType.MOUSE_MOVE:
-        task = TaskMouseMove("no_named")
+        task = TaskMouseMove("move")
     elif task_type == TaskType.MOUSE_LEFT_PRESS:
-        task = TaskMouseLeftPress("no_named")
+        task = TaskMouseLeftPress("left press")
     elif task_type == TaskType.MOUSE_LEFT_RELEASE:
-        task = TaskMouseLeftRelease("no_named")
+        task = TaskMouseLeftRelease("left release")
     elif task_type == TaskType.MOUSE_RIGHT_PRESS:
-        task = TaskMouseRightPress("no_named")
+        task = TaskMouseRightPress("right press")
     elif task_type == TaskType.MOUSE_RIGHT_RELEASE:
-        task = TaskMouseRightRelease("no_named")
+        task = TaskMouseRightRelease("right release")
     elif task_type == TaskType.MOUSE_SCROLL:
-        task = TaskMouseScroll("no_named")
+        task = TaskMouseScroll("scroll")
     task.from_dict(cfg)
     return task
+
+
+def create_task(task_type: TaskType) -> Task:
+    return load_task_from_dict({"type": task_type.value})
