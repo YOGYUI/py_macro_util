@@ -30,6 +30,7 @@ class TaskType(IntEnum):
     MOUSE_SCROLL = auto()
     KEY_PRESS = auto()
     KEY_RELEASE = auto()
+    KEY_TYPE = auto()
 
 
 class Task:
@@ -83,9 +84,10 @@ class TaskSleep(Task):
     def __repr__(self) -> str:
         return f"[{type(self).__name__}({hex(id(self))})] <{self.sleep_time_sec} sec>"
 
-    def execute(self):
+    def execute(self) -> bool:
         GetLogger().info(f"executing <{self.sleep_time_sec} sec>", self)
         time.sleep(self.sleep_time_sec)
+        return True
 
     def to_dict(self) -> dict:
         cfg = super().to_dict()
@@ -317,6 +319,63 @@ class TaskMouseScroll(TaskMouseCommon):
         return True
 
 
+class TaskKeyPress(Task):
+    def __init__(self, name: str):
+        super().__init__(name, TaskType.KEY_PRESS)
+        # self.key = Key.
+        pass
+
+    def execute(self) -> bool:
+        GetLogger().info("executing <>", self)
+        self._keyboard_controller.press(self.key)
+        return True
+
+    def to_dict(self) -> dict:
+        cfg = super().to_dict()
+        return cfg
+
+    def from_dict(self, cfg: dict):
+        super().from_dict(cfg)
+
+
+class TaskKeyRelease(Task):
+    def __init__(self, name: str):
+        super().__init__(name, TaskType.KEY_RELEASE)
+
+    def execute(self) -> bool:
+        GetLogger().info("executing <>", self)
+        # self._keyboard_controller.press(Key)
+        return True
+
+    def to_dict(self) -> dict:
+        cfg = super().to_dict()
+        return cfg
+
+    def from_dict(self, cfg: dict):
+        super().from_dict(cfg)
+
+
+class TaskKeyType(Task):
+    def __init__(self, name: str):
+        super().__init__(name, TaskType.KEY_TYPE)
+        self.string = "string to type in"
+
+    def execute(self) -> bool:
+        GetLogger().info("executing <>", self)
+        self._keyboard_controller.type(self.string)
+        return True
+
+    def to_dict(self) -> dict:
+        cfg = super().to_dict()
+        cfg["string"] = self.string
+        return cfg
+
+    def from_dict(self, cfg: dict):
+        super().from_dict(cfg)
+        self.string = cfg.get("string", "string to type in")
+
+
+
 def load_task_from_dict(cfg: dict) -> Task:
     task = Task("no_named", TaskType.DEFAULT)
     try:
@@ -347,6 +406,12 @@ def load_task_from_dict(cfg: dict) -> Task:
         task = TaskMouseRightRelease("right release")
     elif task_type == TaskType.MOUSE_SCROLL:
         task = TaskMouseScroll("scroll")
+    elif task_type == TaskType.KEY_PRESS:
+        task = TaskKeyPress("key press")
+    elif task_type == TaskType.KEY_RELEASE:
+        task = TaskKeyRelease("key release")
+    elif task_type == TaskType.KEY_TYPE:
+        task = TaskKeyType("key type")
     task.from_dict(cfg)
     return task
 

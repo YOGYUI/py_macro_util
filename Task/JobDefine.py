@@ -77,6 +77,7 @@ class MacroJob:
         self.refresh_task(False)
 
     def execute(self):
+        self.save()
         self._start_thread_execute()
 
     def pause(self):
@@ -114,14 +115,19 @@ class MacroJob:
         }
         return cfg
 
-    def from_dict(self, cfg: dict):
+    def from_dict(self, cfg: dict) -> bool:
         self._name = cfg.get("name", "no_named")
         self._repeat_count = cfg.get("repeat_count", 1)
         self._task_list = [load_task_from_dict(x) for x in cfg.get("task_list", [])]
         self.refresh_task(False)
+        return True
 
-    def set_file_path(self, file_path: str):
-        self._file_path = file_path
+    def set_file_path(self, file_path: str) -> bool:
+        if os.path.isfile(file_path) and os.path.splitext(file_path)[-1].lower() == ".json":
+            self._file_path = file_path
+        else:
+            self._file_path = os.path.join(CFG_PATH, "default_job.json")
+        return True
 
     def save(self):
         try:
@@ -139,15 +145,17 @@ class MacroJob:
         except Exception as e:
             GetLogger().critical(f"failed to save: {e}", self)
 
-    def load(self):
+    def load(self) -> bool:
         try:
             if not os.path.isfile(self._file_path):
                 self.save()
             with open(self._file_path, "r") as fp:
-                self.from_dict(json.load(fp))
+                result = self.from_dict(json.load(fp))
             GetLogger().info(f"Loaded job from file ({self._file_path})", self)
+            return result
         except Exception as e:
             GetLogger().critical(f"failed to load: {e}", self)
+        return False
 
     def add_task(self, task: Task):
         self._task_list.append(task)
@@ -227,3 +235,7 @@ class MacroJob:
     def repeat_count(self, count: int):
         self._repeat_count = count
         self.save()
+
+    @property
+    def file_path(self) -> str:
+        return self._file_path

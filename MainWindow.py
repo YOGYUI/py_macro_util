@@ -3,13 +3,14 @@ import time
 from datetime import datetime
 from typing import Union
 from PySide6.QtCore import QThread, Signal
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (QMainWindow, QWidget, QLabel, QPushButton, QSpinBox, QCheckBox, QLineEdit,
                                QVBoxLayout, QHBoxLayout, QSizePolicy, QGroupBox, QFileDialog,
                                QMenuBar, QMenu, QStatusBar)
 from Widget import *
 from AppCore import AppCore
 from Util import GetLogger, make_qaction
+from Widget.ModifyTaskPropertyWidget import ModifyTaskPropertyWidget
 
 
 class ThreadUpdateControl(QThread):
@@ -64,6 +65,7 @@ class MainWindow(QMainWindow):
         self._queue_update_control = queue.Queue()
         self.setWindowTitle("MACRO")
         self.setWindowIcon(QIcon("./Resource/Icon/application.ico"))
+        self.setAcceptDrops(True)
         self.initControl()
         self.initLayout()
         self.initMenuBar()
@@ -152,6 +154,9 @@ class MainWindow(QMainWindow):
         menu_option = QMenu("Option", parent=menubar)
         menubar.addAction(menu_option.menuAction())
 
+        menu_about = QMenu("About", parent=menubar)
+        menubar.addAction(menu_about.menuAction())
+
     def initStatusBar(self):
         statusbar = QStatusBar(self)
         self.setStatusBar(statusbar)
@@ -169,6 +174,8 @@ class MainWindow(QMainWindow):
         self._core.sig_monitor_result.connect(self._putUpdateControlQueue)
         self._core.sig_job_task_list_changed.connect(
             lambda: self._putUpdateControlQueue({"task_list_changed": True}, True))
+        self._core.sig_task_properties_modified.connect(
+            lambda x: self._putUpdateControlQueue({"task_properties_modified": x}, True))
         self._widget_job_manager.setCore(self._core)
         job = self._core.job
         self._edit_job_name.setText(job.name)
@@ -212,12 +219,17 @@ class MainWindow(QMainWindow):
             timestamp: datetime = obj.get("timestamp")
             self._lbl_time_stamp.setText(timestamp.strftime("%Y-%m-%d %H:%M:%S"))
 
-        if "mouse_position" in obj.keys():
-            pos_x, pos_y = obj.get("mouse_position")
+        if "mouse_pos" in obj.keys():
+            pos_x, pos_y = obj.get("mouse_pos")
+            self._widget_job_manager.updateMousePosition(pos_x, pos_y)
 
         task_list_changed = obj.get("task_list_changed", False)
         if task_list_changed:
             self._widget_job_manager.drawTaskList()
+
+        if "task_properties_modified" in obj.keys():
+            task_properties_modified = obj.get("task_properties_modified")
+            self._widget_job_manager.updateTaskProperty(task_properties_modified)
 
     def _onThreadUpdateUpdateControlByTimer(self):
         job = self._core.job
@@ -252,15 +264,26 @@ class MainWindow(QMainWindow):
         job.name = name
 
     def _loadMacroJobFile(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open Macro Job File (json)", '',
-                                              "JSON files (*.json)")
-        self._core.load_job_file(path)
-        self._edit_job_name.setText(self._core.job.name)
+        path_, _ = QFileDialog.getOpenFileName(self, "Open Macro Job File (json)", '',
+                                               "JSON files (*.json)")
+        if self._core.load_job_file(path_):
+            self._edit_job_name.setText(self._core.job.name)
 
     def _saveMacroJobFile(self):
-        path , _ = QFileDialog.getSaveFileName(self, "Save Macro Job File (json)", "macro_job.json",
-                                               "JSON files (*.json)")
-        self._core.save_job_file(path)
+        path_ , _ = QFileDialog.getSaveFileName(self, "Save Macro Job File (json)", "macro_job.json",
+                                                "JSON files (*.json)")
+        self._core.save_job_file(path_)
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        event.accept()
+
+    def dropEvent(self, event: QDropEvent):
+        paths = event.mimeData().text().split('\n')
+        for p in paths:
+            p = p.split('///')[-1]
+            if self._core.load_job_file(p):
+                self._edit_job_name.setText(self._core.job.name)
+                break
 
 
 if __name__ == "__main__":
