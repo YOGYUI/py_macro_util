@@ -68,11 +68,17 @@ class AppCore:
         ensure_path_exist(CFG_PATH)
         self._default_app_config_file_path = os.path.join(CFG_PATH, "app_config.json")
         self._record_mouse_pos_key: KeyCode = Key.f10
+        self._record_key_seqeunce_key: KeyCode = Key.f10
+        self._recording_key_sequence: bool = False
+
         self.load_config()
 
         self.sig_monitor_result = Callback(dict)
         self.sig_job_task_list_changed = Callback()
         self.sig_task_properties_modified = Callback(Task)
+        self.sig_job_execute_started = Callback(dict)
+        self.sig_job_execute_terminated = Callback()
+        self.sig_job_current_task_index = Callback(int)
 
         self._mouse_controller = MouseController()
         self._keyboard_controller = KeyboardController()
@@ -84,6 +90,9 @@ class AppCore:
         self._job.set_mouse_controller(self._mouse_controller)
         self._job.set_keyboard_controller(self._keyboard_controller)
         self._job.sig_task_list_changed.connect(self.sig_job_task_list_changed.emit)
+        self._job.sig_execute_started.connect(self._on_job_execute_started)
+        self._job.sig_execute_terminated.connect(self._on_job_execute_terminated)
+        self._job.sig_current_executing_task_index.connect(self._on_job_current_executing_task_index)
         self.load_job_file(self._config.get("last_job_file_path", ""))
         self._current_editing_task_index: int = -1
 
@@ -129,6 +138,23 @@ class AppCore:
     def save_job_file(self, file_path: str):
         self._job.save_as(file_path)
 
+    def execute_job(self, repeat_count: int, infinite: bool = False):
+        self._job.repeat_count = 0 if infinite else repeat_count
+        self._job.execute()
+        self.save_config()
+
+    def stop_job(self):
+        self._job.stop()
+
+    def _on_job_execute_started(self):
+        self.sig_job_execute_started.emit(self._config)
+
+    def _on_job_execute_terminated(self):
+        self.sig_job_execute_terminated.emit()
+
+    def _on_job_current_executing_task_index(self, index: int):
+        self.sig_job_current_task_index.emit(index)
+
     def _start_thread_monitor(self):
         if self._thread_monitor is None:
             self._thread_monitor = ThreadMonitor(self._mouse_controller)
@@ -150,17 +176,27 @@ class AppCore:
         self._thread_monitor = None
 
     def _on_key_press(self, key: Union[Key, KeyCode, None]):
-        print(key, type(key))
+        if self._recording_key_sequence:
+            task = self.get_current_editing_task()
+            if isinstance(task, TaskKeySequence):
+                code = key.value if isinstance(key, Key) else key
+                task.add_sequence_press(code)
 
     def _on_key_release(self, key: Union[Key, KeyCode, None]):
-        if key == self._record_mouse_pos_key:
+        if self._recording_key_sequence:
             task = self.get_current_editing_task()
-            if isinstance(task, TaskMouseCommon):
-                task.pos_x = self._current_mouse_pos[0]
-                task.pos_y = self._current_mouse_pos[1]
-                self.sig_task_properties_modified.emit(task)
-        elif key == Key.esc:
-            self._job.stop()
+            if isinstance(task, TaskKeySequence):
+                code = key.value if isinstance(key, Key) else key
+                task.add_sequence_release(code)
+        else:
+            if key == self._record_mouse_pos_key:
+                task = self.get_current_editing_task()
+                if isinstance(task, TaskMouseCommon):
+                    task.pos_x = self._current_mouse_pos[0]
+                    task.pos_y = self._current_mouse_pos[1]
+                    self.sig_task_properties_modified.emit(task)
+            elif key == Key.esc:
+                self._job.stop()
 
     def get_current_editing_task(self) -> Union[Task, None]:
         if 0 <= self._current_editing_task_index < len(self._job.task_list):
@@ -190,3 +226,11 @@ class AppCore:
     @property
     def record_mouse_pos_key(self) -> KeyCode:
         return self._record_mouse_pos_key
+
+    @property
+    def recording_key_sequence(self) -> bool:
+        return self._recording_key_sequence
+
+    @recording_key_sequence.setter
+    def recording_key_sequence(self, value: bool):
+        self._recording_key_sequence = value

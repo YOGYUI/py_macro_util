@@ -5,3 +5,4 @@ sys.path.extend([CUR_PATH])
 sys.path = list(set(sys.path))
 
 from JobManagerWidget import JobManagerWidget
+from AboutWidget import AboutWindow

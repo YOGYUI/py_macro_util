@@ -3,12 +3,9 @@ import sys
 from functools import partial
 from typing import Union, List
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QFont
-from PySide6.QtWidgets import (QWidget, QTreeWidget, QLabel, QLineEdit,
+from PySide6.QtGui import QFont, QIcon
+from PySide6.QtWidgets import (QWidget, QTreeWidget, QLabel, QPushButton,
                                QVBoxLayout, QHBoxLayout, QSizePolicy)
-
-from Task.TaskDefine import TaskMouseScroll, TaskKeyType
-
 CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Widget
 PROJ_PATH = os.path.dirname(CUR_PATH)
 sys.path.extend([CUR_PATH, PROJ_PATH])
@@ -21,6 +18,8 @@ from Util import PropType, ConfigTreeItem
 class ModifyTaskPropertyWidget(QWidget):
     _core: AppCore = None
     sig_task_property_changed = Signal(Task)
+    sig_record_key_sequence_started = Signal()
+    sig_record_key_sequence_stopped = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -69,7 +68,9 @@ class ModifyTaskPropertyWidget(QWidget):
         self._treeitems.clear()
         self._lbl_current_mouse_position.hide()
         if task is None:
+            self.setVisible(False)
             return
+        self.setVisible(True)
 
         item = ConfigTreeItem("Name", PropType.String)
         item.lineedit.setText(task.name)
@@ -119,15 +120,21 @@ class ModifyTaskPropertyWidget(QWidget):
             self._tree.addTopLevelItem(item)
             self._tree.setItemWidget(item, 1, item.spinbox)
             self._treeitems.append(item)
-        elif task.type in [TaskType.KEY_PRESS, TaskType.KEY_RELEASE]:
-            pass
-        elif task.type == TaskType.KEY_TYPE:
-            item = ConfigTreeItem("String", PropType.String)
-            item.lineedit.setText(task.string)
-            item.lineedit.editingFinished.connect(partial(self._onItemLineEditKeyStringEditingFinished, task, item.lineedit))
+        elif task.type == TaskType.KEY_SEQUENCE:
+            item = ConfigTreeItem("Sequence", PropType.String)
+            item.lineedit.setEnabled(False)
+            item.lineedit.setText(task.to_string())
             self._tree.addTopLevelItem(item)
             self._tree.setItemWidget(item, 1, item.lineedit)
             self._treeitems.append(item)
+            item = ConfigTreeItem("Record", PropType.Button)
+            item.button.setText("Start")
+            item.button.setIcon(QIcon("./Resource/Icon/record.png"))
+            item.button.clicked.connect(partial(self._onItemButtonRecordClicked, item.button, task))
+            self._tree.addTopLevelItem(item)
+            self._tree.setItemWidget(item, 1, item.button)
+            self._treeitems.append(item)
+
         # self._setFontSize(10)
 
     def _setFontSize(self, size: int):
@@ -176,8 +183,16 @@ class ModifyTaskPropertyWidget(QWidget):
             task.dy = value
             self.sig_task_property_changed.emit(task)
 
-    def _onItemLineEditKeyStringEditingFinished(self, task: TaskKeyType, edit: QLineEdit):
-        value = edit.text()
-        if task.string != value:
-            task.string = value
+    def _onItemButtonRecordClicked(self, button: QPushButton, task: TaskKeySequence):
+        if not self._core.recording_key_sequence:
+            self.sig_record_key_sequence_started.emit()
+            task.clear_sequence()
+            self._core.recording_key_sequence = True
+            button.setText("Stop")
+            button.setIcon(QIcon("./Resource/Icon/stop.png"))
+        else:
+            self.sig_record_key_sequence_stopped.emit()
+            self._core.recording_key_sequence = False
+            button.setText("Start")
+            button.setIcon(QIcon("./Resource/Icon/record.png"))
             self.sig_task_property_changed.emit(task)

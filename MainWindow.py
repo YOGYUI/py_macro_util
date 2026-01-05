@@ -2,14 +2,14 @@ import queue
 import time
 from datetime import datetime
 from typing import Union
-from PySide6.QtCore import QThread, Signal
-from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent
+from PySide6.QtCore import Qt, QThread, Signal, QEvent, QProcess
+from PySide6.QtGui import QIcon, QAction, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (QMainWindow, QWidget, QLabel, QPushButton, QSpinBox, QCheckBox, QLineEdit,
                                QVBoxLayout, QHBoxLayout, QSizePolicy, QGroupBox, QFileDialog,
                                QMenuBar, QMenu, QStatusBar)
 from Widget import *
 from AppCore import AppCore
-from Util import GetLogger, make_qaction
+from Util import GetLogger, make_qaction, MyTrayIcon
 from Widget.ModifyTaskPropertyWidget import ModifyTaskPropertyWidget
 
 
@@ -51,6 +51,9 @@ class MainWindow(QMainWindow):
     _recv_monitor_result: bool = True
     _thread_update_control: Union[ThreadUpdateControl, None] = None
 
+    _mb_minimize_when_executing: QAction
+    _prog: str = ""
+
     def __init__(self):
         super().__init__()
         self._edit_job_name = QLineEdit()
@@ -70,6 +73,8 @@ class MainWindow(QMainWindow):
         self.initLayout()
         self.initMenuBar()
         self.initStatusBar()
+        self._trayicon = MyTrayIcon()
+        self.initTrayIcon()
 
         self._startThreadUpdateControl()
         GetLogger().info("Initialized", self)
@@ -91,9 +96,9 @@ class MainWindow(QMainWindow):
         subwgt = QWidget()
         subwgt.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
         hbox = QHBoxLayout(subwgt)
-        hbox.setContentsMargins(2, 4, 0, 0)
+        hbox.setContentsMargins(2, 2, 0, 0)
         hbox.setSpacing(4)
-        lbl = QLabel("Name")
+        lbl = QLabel("Job Name")
         lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.MinimumExpanding)
         hbox.addWidget(lbl)
         hbox.addWidget(self._edit_job_name)
@@ -153,6 +158,11 @@ class MainWindow(QMainWindow):
 
         menu_option = QMenu("Option", parent=menubar)
         menubar.addAction(menu_option.menuAction())
+        menu_option.aboutToShow.connect(self._onMenuOptionAboutToShow)
+        self._mb_minimize_when_executing = make_qaction(parent=self, text="Minimize when executing",
+                                                        checkable=True,
+                                                        triggered=self._onClickMenuMinimizeWhenExecuting)
+        menu_option.addAction(self._mb_minimize_when_executing)
 
         menu_about = QMenu("About", parent=menubar)
         menubar.addAction(menu_about.menuAction())
@@ -164,7 +174,15 @@ class MainWindow(QMainWindow):
         # statusbar.addWidget(self._lbl_app_build_date)
         statusbar.addPermanentWidget(self._lbl_time_stamp)
 
+    def initTrayIcon(self):
+        self._trayicon.sig_show_window.connect(self._onTrayIconShowWindow)
+        self._trayicon.sig_close_window.connect(self._onTrayIconCloseWindow)
+        self._trayicon.sig_about_to_show.connect(self._onTrayIconAboutToShow)
+        self._trayicon.setVisible(True)
+
     def release(self):
+        self._trayicon.hide()
+        self._trayicon.deleteLater()
         self._recv_monitor_result = False
         self._stopThreadUpdateControl()
         GetLogger().info("Released", self)
@@ -176,6 +194,12 @@ class MainWindow(QMainWindow):
             lambda: self._putUpdateControlQueue({"task_list_changed": True}, True))
         self._core.sig_task_properties_modified.connect(
             lambda x: self._putUpdateControlQueue({"task_properties_modified": x}, True))
+        self._core.sig_job_execute_started.connect(
+            lambda x: self._putUpdateControlQueue({"task_execute_started": x}, True))
+        self._core.sig_job_execute_terminated.connect(
+            lambda: self._putUpdateControlQueue({"task_execute_terminated": True}, True))
+        self._core.sig_job_current_task_index.connect(
+            lambda x: self._putUpdateControlQueue({"task_current_index": x}, True))
         self._widget_job_manager.setCore(self._core)
         job = self._core.job
         self._edit_job_name.setText(job.name)
@@ -231,6 +255,20 @@ class MainWindow(QMainWindow):
             task_properties_modified = obj.get("task_properties_modified")
             self._widget_job_manager.updateTaskProperty(task_properties_modified)
 
+        if "task_execute_started" in obj.keys():
+            config = obj.get("task_execute_started", {})
+            minimize_when_executing = config.get("minimize_when_executing", False)
+            if minimize_when_executing:
+                self.setWindowState(Qt.WindowState.WindowMinimized)
+
+        if "task_execute_terminated" in obj.keys():
+            self.show()
+            self.showNormal()
+            self.activateWindow()
+
+        if "task_current_index" in obj.keys():
+            pass
+
     def _onThreadUpdateUpdateControlByTimer(self):
         job = self._core.job
         self._btn_start.setEnabled(not job.is_executing())
@@ -250,18 +288,16 @@ class MainWindow(QMainWindow):
             self._queue_update_control.put(obj)
 
     def _onClickBtnStart(self):
-        job = self._core.job
-        job.repeat_count = 0 if self._check_infinite.isChecked() else self._spin_repeat_count.value()
-        job.execute()
+        self._core.execute_job(self._spin_repeat_count.value(), self._check_infinite.isChecked())
 
     def _onClickBtnStop(self):
-        job = self._core.job
-        job.stop()
+        self._core.stop_job()
 
     def _onEditJobNameEditingFinished(self):
         name = self._edit_job_name.text()
         job = self._core.job
-        job.name = name
+        if job.name != name:
+            job.name = name
 
     def _loadMacroJobFile(self):
         path_, _ = QFileDialog.getOpenFileName(self, "Open Macro Job File (json)", '',
@@ -274,6 +310,27 @@ class MainWindow(QMainWindow):
                                                 "JSON files (*.json)")
         self._core.save_job_file(path_)
 
+    def _onMenuOptionAboutToShow(self):
+        minimize_when_executing = self._core.config.get("minimize_when_executing", False)
+        self._mb_minimize_when_executing.setChecked(minimize_when_executing)
+
+    def _onClickMenuMinimizeWhenExecuting(self):
+        minimize_when_executing = self._core.config.get("minimize_when_executing", False)
+        self._core.config["minimize_when_executing"] = not minimize_when_executing
+
+    def _onTrayIconShowWindow(self):
+        self.show()
+        self.showNormal()
+        self.activateWindow()
+
+    def _onTrayIconCloseWindow(self):
+        self.showNormal()
+        self.activateWindow()
+        self.close()
+
+    def _onTrayIconAboutToShow(self):
+        pass
+
     def dragEnterEvent(self, event: QDragEnterEvent):
         event.accept()
 
@@ -284,6 +341,21 @@ class MainWindow(QMainWindow):
             if self._core.load_job_file(p):
                 self._edit_job_name.setText(self._core.job.name)
                 break
+
+    def closeEvent(self, event: QEvent):
+        if len(self._prog) > 0:
+            GetLogger().info("Restart", self)
+            QProcess.startDetached(self._prog)
+
+    def changeEvent(self, event: QEvent):
+        """
+        if event.type() == QEvent.Type.WindowStateChange:
+            curstate = self.windowState()
+            if curstate & Qt.WindowState.WindowMinimized:
+                self.hide()
+            else:
+                pass
+        """
 
 
 if __name__ == "__main__":

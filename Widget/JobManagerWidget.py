@@ -1,11 +1,11 @@
 import os
 import sys
 from functools import partial
-from PySide6.QtCore import QSize
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QWheelEvent
 from PySide6.QtWidgets import (QWidget, QPushButton, QComboBox, QLineEdit,
                                QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QAbstractItemDelegate,
-                               QVBoxLayout, QHBoxLayout, QSizePolicy)
+                               QVBoxLayout, QHBoxLayout, QSizePolicy, QSplitter)
 CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Widget
 PROJ_PATH = os.path.dirname(CUR_PATH)
 sys.path.extend([CUR_PATH, PROJ_PATH])
@@ -21,13 +21,14 @@ class JobManagerWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self._widget_control_task = QWidget()
-        self._widget_modify_task_property = ModifyTaskPropertyWidget(self)
         self._btn_add_task = QPushButton()
         self._btn_remove_task = QPushButton()
         self._btn_clear_task = QPushButton()
         self._btn_move_task_up = QPushButton()
         self._btn_move_task_down = QPushButton()
+        self._splitter = QSplitter(Qt.Orientation.Vertical)
         self._table_task_list = QTableWidget()
+        self._widget_modify_task_property = ModifyTaskPropertyWidget(self)
         self.initControl()
         self.initLayout()
 
@@ -48,8 +49,10 @@ class JobManagerWidget(QWidget):
         hbox.addWidget(self._btn_clear_task)
         hbox.addWidget(QWidget())
         vbox.addWidget(self._widget_control_task)
-        vbox.addWidget(self._table_task_list)
-        vbox.addWidget(self._widget_modify_task_property)
+        self._splitter.addWidget(self._table_task_list)
+        self._splitter.addWidget(self._widget_modify_task_property)
+        # self._splitter.setsize
+        vbox.addWidget(self._splitter)
         self._widget_modify_task_property.setVisible(False)
 
     def initControl(self):
@@ -83,17 +86,20 @@ class JobManagerWidget(QWidget):
         self._btn_clear_task.setFixedSize(24, 24)
         self._btn_clear_task.setFlat(True)
         self._btn_clear_task.setToolTip("Clear Task(s)")
+        self._splitter.setStyleSheet("QSplitter:handle:vertical {background:rgb(204,206,219); \
+                                                                 margin:1px 1px}")
 
-        hlabels = ["type", "name"]
+        hlabels = ["type", "name", "param"]
         self._table_task_list.setColumnCount(len(hlabels))
         self._table_task_list.setHorizontalHeaderLabels(hlabels)
-        hHeader = self._table_task_list.horizontalHeader()
-        hHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        hHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        # hHeader = self._table_task_list.horizontalHeader()
+        # hHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        # hHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self._table_task_list.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table_task_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table_task_list.itemSelectionChanged.connect(self._onTableTaskListItemSelectionChanged)
         self._table_task_list.closeEditor = self._onTableTaskListCloseEditor
+        self._table_task_list.setWordWrap(False)
 
         self._widget_modify_task_property.sig_task_property_changed.connect(self._onTaskPropertyChanged)
 
@@ -105,7 +111,8 @@ class JobManagerWidget(QWidget):
     def updateControl(self):
         job = self._core.job
         self._widget_control_task.setEnabled(not job.is_executing())
-        self._table_task_list.setEnabled(not job.is_executing())
+        table_enable_state = not job.is_executing() and not self._core.recording_key_sequence
+        self._table_task_list.setEnabled(table_enable_state)
         if self._core.current_editing_task_index >= 0:
             self._btn_remove_task.setEnabled(True)
             self._btn_move_task_up.setEnabled(True)
@@ -139,8 +146,31 @@ class JobManagerWidget(QWidget):
             item = self._table_task_list.item(r, 1)
             if item is None:
                 item = QTableWidgetItem()
+                # item.setFlags(Qt.ItemFlag(item.flags() ^ Qt.ItemFlag.ItemIsEditable))
                 self._table_task_list.setItem(r, 1, item)
             item.setText(task.name)
+
+            item = self._table_task_list.item(r, 2)
+            if item is None:
+                item = QTableWidgetItem()
+                item.setFlags(Qt.ItemFlag(item.flags() ^ Qt.ItemFlag.ItemIsEditable))
+                self._table_task_list.setItem(r, 2, item)
+        self._drawTaskListProperties()
+
+    def _drawTaskListProperties(self):
+        job = self._core.job
+        task_list = job.task_list
+        for r, task in enumerate(task_list):
+            item = self._table_task_list.item(r, 2)
+            if isinstance(task, TaskMouseCommon):
+                if isinstance(task, TaskMouseScroll):
+                    item.setText(f"({task.dx}, {task.dy})")
+                else:
+                    item.setText(f"({task.pos_x}, {task.pos_y})")
+            elif isinstance(task, TaskKeySequence):
+                item.setText(task.to_string())
+            elif isinstance(task, TaskSleep):
+                item.setText("{:g} sec".format(task.sleep_time_sec))
 
     def _onClickBtnAddTask(self):
         job = self._core.job
@@ -197,6 +227,9 @@ class JobManagerWidget(QWidget):
         task = job.task_list[task_index]
         if task.type.value != combo_index + 1:
             new_task = create_task(TaskType(combo_index + 1))
+            if isinstance(task, TaskMouseCommon) and isinstance(new_task, TaskMouseCommon):
+                new_task.pos_x = task.pos_x
+                new_task.pos_y = task.pos_y
             job.replace_task(task_index, new_task)
             self._refreshTaskPropertyWidget()
 
@@ -207,10 +240,11 @@ class JobManagerWidget(QWidget):
     def _refreshTaskPropertyWidget(self):
         task = self._core.get_current_editing_task()
         self._widget_modify_task_property.setTask(task)
-        self._widget_modify_task_property.setVisible(task is not None)
 
     def _onTaskPropertyChanged(self, task: Task):
-        pass
+        self._widget_modify_task_property.setTask(task)
+        self._drawTaskListProperties()
+        self._core.job.save()
 
     def updateTaskProperty(self, task: Task):
-        self._refreshTaskPropertyWidget()
+        self._onTaskPropertyChanged(task)

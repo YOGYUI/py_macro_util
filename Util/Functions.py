@@ -1,9 +1,10 @@
 import os
 from typing import Union
 from enum import IntEnum, unique
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QAction, QMouseEvent
-from PySide6.QtWidgets import (QTreeWidgetItem, QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit, QPushButton)
+from PySide6.QtWidgets import (QTreeWidgetItem, QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit, QPushButton,
+                               QSystemTrayIcon, QMenu)
 
 
 def ensure_path_exist(path: str):
@@ -139,7 +140,7 @@ class ConfigTreeItem(QTreeWidgetItem):
             self.lineedit.setFrame(False)
         elif proptype == PropType.Button:
             self.button = QPushButton('Action')
-            self.button.setIcon(QIcon('./Resource/arrow_command.png'))
+            # self.button.setIcon(QIcon('./Resource/arrow_command.png'))
             self.button.setEnabled(itemEnable)
 
     def onWheelEvent(self, event):
@@ -167,3 +168,63 @@ class ConfigTreeItem(QTreeWidgetItem):
         if self.combobox is not None:
             return bool(self.combobox.currentIndex())
         return False
+
+
+class MyTrayIcon(QSystemTrayIcon):
+    sig_show_window = Signal()
+    sig_close_window = Signal()
+    # sig_control_macro = Signal(bool)
+    sig_about_to_show = Signal()
+
+    # _macro_working: bool = False
+
+    def __init__(self):
+        super().__init__()
+        self.setIcon(QIcon("./Resource/Icon/application.ico"))
+        self.setToolTip('MACRO')
+        """
+        self._menu_control_macro = makeQAction(parent=self, text="", triggered=self._toggleMacro,
+                                               iconPath="./Resource/mouse.png")
+        """
+        self.initContextMenu()
+
+        self.activated.connect(self.onActivated)
+
+    def onActivated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self.sig_show_window.emit()
+        elif reason == QSystemTrayIcon.ActivationReason.Trigger:
+            pass
+        elif reason == QSystemTrayIcon.ActivationReason.Context:
+            pass
+        elif reason == QSystemTrayIcon.ActivationReason.MiddleClick:
+            pass
+
+    def initContextMenu(self):
+        ctmenu = QMenu()
+        self.setContextMenu(ctmenu)
+        ctmenu.aboutToShow.connect(self._onContextMenuAboutToShow)
+
+        menu_open = ctmenu.addAction('Open')
+        menu_open.triggered.connect(lambda: self.sig_show_window.emit())
+        ctmenu.addSeparator()
+        # ctmenu.addAction(self._menu_control_macro)
+        # ctmenu.addSeparator()
+        menu_close = ctmenu.addAction('Close')
+        menu_close.setIcon(QIcon("./Resource/Icon/close.png"))
+        menu_close.triggered.connect(lambda: self.sig_close_window.emit())
+
+    def _onContextMenuAboutToShow(self):
+        self.sig_about_to_show.emit()
+
+    """
+    def setMacroWorkingState(self, work: bool):
+        self._macro_working = work
+        if self._macro_working:
+            self._menu_control_macro.setText("Stop Macro")
+        else:
+            self._menu_control_macro.setText("Start Macro")
+
+    def _toggleMacro(self):
+        self.sig_control_macro.emit(not self._macro_working)
+    """

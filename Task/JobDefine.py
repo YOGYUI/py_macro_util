@@ -67,6 +67,8 @@ class MacroJob:
 
         self.sig_task_list_changed = Callback()
         self.sig_current_executing_task_index = Callback(int)
+        self.sig_execute_started = Callback()
+        self.sig_execute_terminated = Callback()
 
     def set_mouse_controller(self, controller: MouseController):
         self._mouse_controller = controller
@@ -95,6 +97,7 @@ class MacroJob:
             self._thread_execute.sig_terminated.connect(self._on_thread_execute_terminated)
             self._thread_execute.sig_current_task_index.connect(self._on_thread_execute_current_index)
             self._thread_execute.start()
+            self.sig_execute_started.emit()
 
     def _stop_thread_execute(self):
         if self._thread_execute is not None:
@@ -103,6 +106,7 @@ class MacroJob:
     def _on_thread_execute_terminated(self):
         del self._thread_execute
         self._thread_execute = None
+        self.sig_execute_terminated.emit()
 
     def _on_thread_execute_current_index(self, index: int):
         self.sig_current_executing_task_index.emit(index)

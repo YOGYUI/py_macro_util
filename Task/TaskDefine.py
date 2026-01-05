@@ -2,11 +2,11 @@ import os
 import sys
 import time
 from enum import IntEnum, unique, auto
-from typing import Union
+from typing import Union, List
 from pynput.mouse import Controller as MouseController
 from pynput.mouse import Button
 from pynput.keyboard import Controller as KeyboardController
-from pynput.keyboard import Key
+from pynput.keyboard import Key, KeyCode
 CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Task
 PROJ_PATH = os.path.dirname(CUR_PATH)
 sys.path.extend([CUR_PATH, PROJ_PATH])
@@ -28,9 +28,7 @@ class TaskType(IntEnum):
     MOUSE_RIGHT_PRESS = auto()
     MOUSE_RIGHT_RELEASE = auto()
     MOUSE_SCROLL = auto()
-    KEY_PRESS = auto()
-    KEY_RELEASE = auto()
-    KEY_TYPE = auto()
+    KEY_SEQUENCE = auto()
 
 
 class Task:
@@ -319,61 +317,99 @@ class TaskMouseScroll(TaskMouseCommon):
         return True
 
 
-class TaskKeyPress(Task):
+@unique
+class KeyTaskType(IntEnum):
+    PRESS = auto()
+    RELEASE = auto()
+
+
+class KeyTask:
+    _controller: Union[KeyboardController, None] = None
+
+    def __init__(self, key: KeyCode, task_type: KeyTaskType):
+        self.key = key
+        self.task_type = task_type
+
+    def __repr__(self) -> str:
+        return f"[{type(self).__name__}({hex(id(self))})] <{self.task_type.name}><{self.key}>"
+
+    def execute(self):
+        if self.task_type == KeyTaskType.PRESS:
+            self._controller.press(self.key)
+        elif self.task_type == KeyTaskType.RELEASE:
+            self._controller.release(self.key)
+
+    def set_controller(self, controller: KeyboardController):
+        self._controller = controller
+
+    def to_string(self) -> str:
+        return f"<{self.task_type.name[0]}><{self.key.vk}({self.key.char})>"
+
+    def to_tuple(self) -> tuple:
+        return self.task_type.value, self.key.vk
+
+
+class TaskKeySequence(Task):
     def __init__(self, name: str):
-        super().__init__(name, TaskType.KEY_PRESS)
-        # self.key = Key.
-        pass
+        super().__init__(name, TaskType.KEY_SEQUENCE)
+        self._sequence: List[KeyTask] = list()
 
     def execute(self) -> bool:
         GetLogger().info("executing <>", self)
-        self._keyboard_controller.press(self.key)
+        for seq in self._sequence:
+            seq.execute()
+            time.sleep(1e-3)
         return True
 
     def to_dict(self) -> dict:
         cfg = super().to_dict()
+        cfg["sequence"] = [seq.to_tuple() for seq in self._sequence]
         return cfg
 
     def from_dict(self, cfg: dict):
         super().from_dict(cfg)
+        self._sequence.clear()
+        sequence_list = cfg.get("sequence", [])
+        for elem in sequence_list:
+            seq_type, seq_value = elem
+            task = KeyTask(KeyCode.from_vk(seq_value), KeyTaskType(seq_type))
+            self._sequence.append(task)
 
+    def to_string(self) -> str:
+        return ', '.join([seq.to_string() for seq in self._sequence])
 
-class TaskKeyRelease(Task):
-    def __init__(self, name: str):
-        super().__init__(name, TaskType.KEY_RELEASE)
+    def add_sequence_press(self, key: KeyCode):
+        # 중복 입력 방지
+        if len(self._sequence) > 0:
+            prev_seq = self._sequence[-1]
+            if prev_seq.key == key and prev_seq.task_type == KeyTaskType.PRESS:
+                return
+        task = KeyTask(key, KeyTaskType.PRESS)
+        self._sequence.append(task)
+        print('press', type(key), key.char, key.vk, type(key.char), type(key.vk))
+        self.refresh()
 
-    def execute(self) -> bool:
-        GetLogger().info("executing <>", self)
-        # self._keyboard_controller.press(Key)
-        return True
+    def add_sequence_release(self, key: KeyCode):
+        # 중복 입력 방지
+        if len(self._sequence) > 0:
+            prev_seq = self._sequence[-1]
+            if prev_seq.key == key and prev_seq.task_type == KeyTaskType.RELEASE:
+                return
+        task = KeyTask(key, KeyTaskType.RELEASE)
+        self._sequence.append(task)
+        print('release', type(key), key.char, key.vk, type(key.char), type(key.vk))
+        self.refresh()
 
-    def to_dict(self) -> dict:
-        cfg = super().to_dict()
-        return cfg
+    def clear_sequence(self):
+        self._sequence.clear()
 
-    def from_dict(self, cfg: dict):
-        super().from_dict(cfg)
+    def set_keyboard_controller(self, controller: KeyboardController):
+        self._keyboard_controller = controller
+        self.refresh()
 
-
-class TaskKeyType(Task):
-    def __init__(self, name: str):
-        super().__init__(name, TaskType.KEY_TYPE)
-        self.string = "string to type in"
-
-    def execute(self) -> bool:
-        GetLogger().info("executing <>", self)
-        self._keyboard_controller.type(self.string)
-        return True
-
-    def to_dict(self) -> dict:
-        cfg = super().to_dict()
-        cfg["string"] = self.string
-        return cfg
-
-    def from_dict(self, cfg: dict):
-        super().from_dict(cfg)
-        self.string = cfg.get("string", "string to type in")
-
+    def refresh(self):
+        for seq in self._sequence:
+            seq.set_controller(self._keyboard_controller)
 
 
 def load_task_from_dict(cfg: dict) -> Task:
@@ -406,12 +442,8 @@ def load_task_from_dict(cfg: dict) -> Task:
         task = TaskMouseRightRelease("right release")
     elif task_type == TaskType.MOUSE_SCROLL:
         task = TaskMouseScroll("scroll")
-    elif task_type == TaskType.KEY_PRESS:
-        task = TaskKeyPress("key press")
-    elif task_type == TaskType.KEY_RELEASE:
-        task = TaskKeyRelease("key release")
-    elif task_type == TaskType.KEY_TYPE:
-        task = TaskKeyType("key type")
+    elif task_type == TaskType.KEY_SEQUENCE:
+        task = TaskKeySequence("key sequence")
     task.from_dict(cfg)
     return task
 
