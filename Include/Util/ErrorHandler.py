@@ -5,8 +5,8 @@ import logging.handlers
 import platform
 import traceback
 from Functions import ensure_path_exist
-CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Util
-PROJ_PATH = os.path.dirname(CUR_PATH)
+CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Include/Util
+PROJ_PATH = os.path.dirname(os.path.dirname(CUR_PATH))
 MAX_SIZE = 100 * 1024 * 1024
 
 

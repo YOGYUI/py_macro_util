@@ -2,7 +2,7 @@ import queue
 import time
 from datetime import datetime
 from typing import Union
-from PySide6.QtCore import Qt, QThread, Signal, QEvent, QProcess
+from PySide6.QtCore import Qt, QThread, Signal, QEvent, QProcess, QPoint
 from PySide6.QtGui import QIcon, QAction, QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (QMainWindow, QWidget, QLabel, QPushButton, QSpinBox, QCheckBox, QLineEdit,
                                QVBoxLayout, QHBoxLayout, QSizePolicy, QGroupBox, QFileDialog,
@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QLabel, QPushButton, QSpinB
 from Widget import *
 from AppCore import AppCore
 from Util import GetLogger, make_qaction, MyTrayIcon
-from Widget.ModifyTaskPropertyWidget import ModifyTaskPropertyWidget
 
 
 class ThreadUpdateControl(QThread):
@@ -75,6 +74,8 @@ class MainWindow(QMainWindow):
         self.initStatusBar()
         self._trayicon = MyTrayIcon()
         self.initTrayIcon()
+
+        self.resize(350, 500)
 
         self._startThreadUpdateControl()
         GetLogger().info("Initialized", self)
@@ -265,9 +266,16 @@ class MainWindow(QMainWindow):
             self.show()
             self.showNormal()
             self.activateWindow()
+            self._widget_job_manager.onTaskCurrentIndex(-1)
+            # move mouse position to start button
+            btn_pos = self._btn_start.mapToGlobal(QPoint(0, 0))
+            x = btn_pos.x() + self._btn_start.width() // 2
+            y = btn_pos.y() + self._btn_start.height() // 2
+            self._core.move_mouse_cursor_to(x, y)
 
         if "task_current_index" in obj.keys():
-            pass
+            index = obj.get("task_current_index", -1)
+            self._widget_job_manager.onTaskCurrentIndex(index)
 
     def _onThreadUpdateUpdateControlByTimer(self):
         job = self._core.job

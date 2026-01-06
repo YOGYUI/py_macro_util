@@ -11,7 +11,7 @@ from pynput.keyboard import Listener as KeyboardListener
 from pynput.keyboard import Key, KeyCode
 from Task import *
 from Util import GetLogger, Callback, ensure_path_exist
-PROJ_PATH = os.path.dirname(os.path.abspath(__file__))
+PROJ_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CFG_PATH = os.path.join(PROJ_PATH, "Config")
 
 
@@ -202,6 +202,9 @@ class AppCore:
         if 0 <= self._current_editing_task_index < len(self._job.task_list):
             return self._job.task_list[self._current_editing_task_index]
         return None
+
+    def move_mouse_cursor_to(self, x: int, y: int):
+        self._mouse_controller.position = x, y
 
     @property
     def job(self) -> MacroJob:

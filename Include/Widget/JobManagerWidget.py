@@ -1,14 +1,15 @@
 import os
 import sys
 from functools import partial
-from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QIcon, QWheelEvent
+from PySide6.QtCore import Qt, QSize, QPoint
+from PySide6.QtGui import QIcon, QWheelEvent, QMouseEvent
 from PySide6.QtWidgets import (QWidget, QPushButton, QComboBox, QLineEdit,
                                QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QAbstractItemDelegate,
                                QVBoxLayout, QHBoxLayout, QSizePolicy, QSplitter)
-CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Widget
-PROJ_PATH = os.path.dirname(CUR_PATH)
-sys.path.extend([CUR_PATH, PROJ_PATH])
+CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Include/Widget
+INC_PATH = os.path.dirname(CUR_PATH)
+PROJ_PATH = os.path.dirname(INC_PATH)
+sys.path.extend([CUR_PATH, INC_PATH, PROJ_PATH])
 sys.path = list(set(sys.path))
 from AppCore import AppCore
 from Task import *
@@ -51,9 +52,9 @@ class JobManagerWidget(QWidget):
         vbox.addWidget(self._widget_control_task)
         self._splitter.addWidget(self._table_task_list)
         self._splitter.addWidget(self._widget_modify_task_property)
-        # self._splitter.setsize
+        self._splitter.setSizes([180, 100])
         vbox.addWidget(self._splitter)
-        self._widget_modify_task_property.setVisible(False)
+        self._widget_modify_task_property.setTask(None)
 
     def initControl(self):
         self._btn_add_task.setIcon(QIcon("./Resource/Icon/plus.png"))
@@ -89,7 +90,7 @@ class JobManagerWidget(QWidget):
         self._splitter.setStyleSheet("QSplitter:handle:vertical {background:rgb(204,206,219); \
                                                                  margin:1px 1px}")
 
-        hlabels = ["type", "name", "param"]
+        hlabels = ["Type", "Alias", "Param"]
         self._table_task_list.setColumnCount(len(hlabels))
         self._table_task_list.setHorizontalHeaderLabels(hlabels)
         # hHeader = self._table_task_list.horizontalHeader()
@@ -99,6 +100,8 @@ class JobManagerWidget(QWidget):
         self._table_task_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table_task_list.itemSelectionChanged.connect(self._onTableTaskListItemSelectionChanged)
         self._table_task_list.closeEditor = self._onTableTaskListCloseEditor
+        self._table_task_list.mousePressEvent = self._onTableTaskListMousePressEvent
+        self._table_task_list.setMouseTracking(True)
         self._table_task_list.setWordWrap(False)
 
         self._widget_modify_task_property.sig_task_property_changed.connect(self._onTaskPropertyChanged)
@@ -222,6 +225,15 @@ class JobManagerWidget(QWidget):
             self._refreshTaskPropertyWidget()
         QTableWidget.closeEditor(self._table_task_list, editor, hint)
 
+    def _onTableTaskListMousePressEvent(self, event: QMouseEvent):
+        if event.type() == QMouseEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                x, y = event.x(), event.y()
+                item = self._table_task_list.itemAt(QPoint(x, y))
+                if item is None:
+                    self._table_task_list.clearSelection()
+        QTableWidget.mousePressEvent(self._table_task_list, event)
+
     def _onComboTaskTypeIndexChanged(self, task_index: int, combo_index: int):
         job = self._core.job
         task = job.task_list[task_index]
@@ -248,3 +260,9 @@ class JobManagerWidget(QWidget):
 
     def updateTaskProperty(self, task: Task):
         self._onTaskPropertyChanged(task)
+
+    def onTaskCurrentIndex(self, index: int):
+        self._table_task_list.selectRow(index)
+        if index >= 0:
+            item = self._table_task_list.item(index, 0)
+            self._table_task_list.scrollToItem(item)

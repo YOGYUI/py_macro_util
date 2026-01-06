@@ -6,9 +6,10 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (QWidget, QTreeWidget, QLabel, QPushButton,
                                QVBoxLayout, QHBoxLayout, QSizePolicy)
-CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Widget
-PROJ_PATH = os.path.dirname(CUR_PATH)
-sys.path.extend([CUR_PATH, PROJ_PATH])
+CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Include/Widget
+INC_PATH = os.path.dirname(CUR_PATH)
+PROJ_PATH = os.path.dirname(INC_PATH)
+sys.path.extend([CUR_PATH, INC_PATH, PROJ_PATH])
 sys.path = list(set(sys.path))
 from AppCore import AppCore
 from Task import *
@@ -61,18 +62,18 @@ class ModifyTaskPropertyWidget(QWidget):
         pass
 
     def updateMousePosition(self, pos_x: int, pos_y: int):
-        self._lbl_current_mouse_position.setText(f"Press {self._core.record_mouse_pos_key.name.upper()} to Change Mouse Position (X: {pos_x}, Y: {pos_y})")
+        self._lbl_current_mouse_position.setText(f"Press '{self._core.record_mouse_pos_key.name.upper()}' to Change Mouse Position (X: {pos_x}, Y: {pos_y})")
 
     def setTask(self, task: Union[Task, None]):
         self._tree.clear()
         self._treeitems.clear()
         self._lbl_current_mouse_position.hide()
-        if task is None:
-            self.setVisible(False)
+        self.setVisible(False)
+        if task is None or self._core.job.is_executing():
             return
         self.setVisible(True)
 
-        item = ConfigTreeItem("Name", PropType.String)
+        item = ConfigTreeItem("Alias", PropType.String)
         item.lineedit.setText(task.name)
         self._tree.addTopLevelItem(item)
         self._tree.setItemWidget(item, 1, item.lineedit)

@@ -5,7 +5,7 @@ if __name__ == "__main__":
     import ctypes
     from PySide6.QtCore import Qt, QAbstractNativeEventFilter
     from PySide6.QtWidgets import QApplication
-    from Util import GetLogger, Callback
+    from Include import GetLogger, Callback
 
     log_prefix = "Application"
     GetLogger().info("Initializing", log_prefix)
@@ -97,8 +97,7 @@ if __name__ == "__main__":
 
     try:
         if not already_running:
-            from AppCore import AppCore
-            from MainWindow import MainWindow
+            from Include import AppCore, MainWindow
 
             core = AppCore()
             mainWnd = MainWindow()

@@ -7,9 +7,10 @@ from pynput.mouse import Controller as MouseController
 from pynput.mouse import Button
 from pynput.keyboard import Controller as KeyboardController
 from pynput.keyboard import Key, KeyCode
-CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Task
-PROJ_PATH = os.path.dirname(CUR_PATH)
-sys.path.extend([CUR_PATH, PROJ_PATH])
+CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Include/Task
+INC_PATH = os.path.dirname(CUR_PATH)
+PROJ_PATH = os.path.dirname(INC_PATH)
+sys.path.extend([CUR_PATH, INC_PATH, PROJ_PATH])
 sys.path = list(set(sys.path))
 from Util import GetLogger
 

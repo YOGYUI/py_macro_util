@@ -2,3 +2,4 @@ PySide6
 PySide6-stubs
 pynput
 pywin32
+pyinstaller

@@ -6,10 +6,11 @@ from threading import Thread
 from pynput.mouse import Controller as MouseController
 from pynput.keyboard import Controller as KeyboardController
 from TaskDefine import (Task, load_task_from_dict)
-CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Task
-PROJ_PATH = os.path.dirname(CUR_PATH)
+CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Include/Task
+INC_PATH = os.path.dirname(CUR_PATH)
+PROJ_PATH = os.path.dirname(INC_PATH)
 CFG_PATH = os.path.join(PROJ_PATH, "Config")
-sys.path.extend([CUR_PATH, PROJ_PATH])
+sys.path.extend([CUR_PATH, INC_PATH, PROJ_PATH])
 sys.path = list(set(sys.path))
 from Util import Callback, GetLogger
 
