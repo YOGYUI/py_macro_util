@@ -178,16 +178,14 @@ class AppCore:
     def _on_key_press(self, key: Union[Key, KeyCode, None]):
         if self._recording_key_sequence:
             task = self.get_current_editing_task()
-            if isinstance(task, TaskKeySequence):
-                code = key.value if isinstance(key, Key) else key
-                task.add_sequence_press(code)
+            if isinstance(task, TaskKeyboardSequence):
+                task.add_sequence_press(key)
 
     def _on_key_release(self, key: Union[Key, KeyCode, None]):
         if self._recording_key_sequence:
             task = self.get_current_editing_task()
-            if isinstance(task, TaskKeySequence):
-                code = key.value if isinstance(key, Key) else key
-                task.add_sequence_release(code)
+            if isinstance(task, TaskKeyboardSequence):
+                task.add_sequence_release(key)
         else:
             if key == self._record_mouse_pos_key:
                 task = self.get_current_editing_task()

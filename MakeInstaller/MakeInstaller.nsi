@@ -3,7 +3,7 @@
 
 ; --- Define ------------------------------------------------------------------------------------------------------------------------------
 !define APP_CLASSNAME		"MACRO"
-!define APP_VERSION			"0.1.0"
+!define APP_VERSION			"1.0.0"
 !define LINK_NAME			"MACRO"
 !define INSTALLER_NAME		"${APP_CLASSNAME}"
 !define PRODUCT_NAME		"${APP_CLASSNAME}"

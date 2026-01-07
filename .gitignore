@@ -209,3 +209,9 @@ __marimo__/
 .idea
 /MakeInstaller/Compile/
 /MakeInstaller/file_version_info.txt
+/MakeInstaller/*.exe
+/Config
+/MakeInstaller/Update/ftp_info.json
+
+/MakeInstaller/Update/VersionInfo.xml
+/MakeInstaller/Update/Patch/

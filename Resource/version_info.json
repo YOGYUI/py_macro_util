@@ -1,10 +1,11 @@
 {
-    "version": "0.1.0",
-    "date": "2026.01.09",
+    "version": "1.0.0",
+    "date": "2026.01.07",
     "author": [
         {
             "name": "SEUNGHEE, LEE",
             "email": "lee2002w@gmail.com"
         }
-    ]
+    ],
+    "required": "1.0.0"
 }

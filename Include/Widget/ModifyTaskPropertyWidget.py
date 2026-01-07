@@ -4,7 +4,7 @@ from functools import partial
 from typing import Union, List
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtWidgets import (QWidget, QTreeWidget, QLabel, QPushButton,
+from PySide6.QtWidgets import (QWidget, QTreeWidget, QLabel, QPushButton, QLineEdit,
                                QVBoxLayout, QHBoxLayout, QSizePolicy)
 CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Include/Widget
 INC_PATH = os.path.dirname(CUR_PATH)
@@ -121,7 +121,7 @@ class ModifyTaskPropertyWidget(QWidget):
             self._tree.addTopLevelItem(item)
             self._tree.setItemWidget(item, 1, item.spinbox)
             self._treeitems.append(item)
-        elif task.type == TaskType.KEY_SEQUENCE:
+        elif task.type == TaskType.KEYBOARD_SEQUENCE:
             item = ConfigTreeItem("Sequence", PropType.String)
             item.lineedit.setEnabled(False)
             item.lineedit.setText(task.to_string())
@@ -135,7 +135,13 @@ class ModifyTaskPropertyWidget(QWidget):
             self._tree.addTopLevelItem(item)
             self._tree.setItemWidget(item, 1, item.button)
             self._treeitems.append(item)
-
+        elif task.type  == TaskType.KEYBOARD_STRING:
+            item = ConfigTreeItem("String", PropType.String)
+            item.lineedit.setText(task.string)
+            item.lineedit.editingFinished.connect(partial(self._onItemEditStringEditingFinished, item.lineedit, task))
+            self._tree.addTopLevelItem(item)
+            self._tree.setItemWidget(item, 1, item.lineedit)
+            self._treeitems.append(item)
         # self._setFontSize(10)
 
     def _setFontSize(self, size: int):
@@ -184,16 +190,24 @@ class ModifyTaskPropertyWidget(QWidget):
             task.dy = value
             self.sig_task_property_changed.emit(task)
 
-    def _onItemButtonRecordClicked(self, button: QPushButton, task: TaskKeySequence):
+    def _onItemButtonRecordClicked(self, button: QPushButton, task: TaskKeyboardSequence):
         if not self._core.recording_key_sequence:
             self.sig_record_key_sequence_started.emit()
             task.clear_sequence()
             self._core.recording_key_sequence = True
             button.setText("Stop")
             button.setIcon(QIcon("./Resource/Icon/stop.png"))
+            button.clearFocus()
         else:
             self.sig_record_key_sequence_stopped.emit()
             self._core.recording_key_sequence = False
             button.setText("Start")
             button.setIcon(QIcon("./Resource/Icon/record.png"))
+            if len(task.sequence) == 0:
+                # 실수로 record 버튼 누른 경우 원복
+                task.recover_sequence()
             self.sig_task_property_changed.emit(task)
+
+    def _onItemEditStringEditingFinished(self, lineedit: QLineEdit, task: TaskKeyboardString):
+        task.string = lineedit.text()
+        self.sig_task_property_changed.emit(task)

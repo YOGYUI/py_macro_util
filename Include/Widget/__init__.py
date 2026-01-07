@@ -7,3 +7,5 @@ sys.path = list(set(sys.path))
 from JobManagerWidget import JobManagerWidget
 from AboutWidget import AboutWindow
 from UpdateWidget import UpdateWindow
+
+__all__ = ["JobManagerWidget", "AboutWindow", "UpdateWindow"]

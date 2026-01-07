@@ -10,9 +10,11 @@ CUR_PATH = os.path.dirname(os.path.abspath(__file__))  # {PROJ}/Include/Task
 INC_PATH = os.path.dirname(CUR_PATH)
 PROJ_PATH = os.path.dirname(INC_PATH)
 CFG_PATH = os.path.join(PROJ_PATH, "Config")
-sys.path.extend([CUR_PATH, INC_PATH, PROJ_PATH])
+UTIL_PATH = os.path.join(INC_PATH, "Util")
+sys.path.extend([CUR_PATH, INC_PATH, PROJ_PATH, UTIL_PATH])
 sys.path = list(set(sys.path))
-from Util import Callback, GetLogger
+from Logger import GetLogger
+from Callback import Callback
 
 
 class ThreadExecute(Thread):

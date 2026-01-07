@@ -11,4 +11,15 @@ from TaskDefine import (TaskMouseCommon, TaskMouseMove, TaskMouseLeftClick, Task
                         TaskMouseLeftPress, TaskMouseLeftRelease,
                         TaskMouseRightPress, TaskMouseRightRelease,
                         TaskMouseScroll)
-from TaskDefine import (TaskKeySequence)
+from TaskDefine import (TaskKeyboardSequence, TaskKeyboardString)
+
+__all__ = [
+    "MacroJob",
+    "Task", "TaskType", "load_task_from_dict", "create_task", "TaskSleep",
+    "TaskMouseCommon", "TaskMouseMove", "TaskMouseLeftClick", "TaskMouseRightClick",
+    "TaskMouseLeftDoubleClick", "TaskMouseRightDoubleClick",
+    "TaskMouseLeftPress", "TaskMouseLeftRelease",
+    "TaskMouseRightPress", "TaskMouseRightRelease",
+    "TaskMouseScroll",
+    "TaskKeyboardSequence", "TaskKeyboardString"
+]

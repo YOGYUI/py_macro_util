@@ -3,7 +3,10 @@ Keyboard, Mouse Utility  Application (python)
 
 How to use?
 ---
+```commandline
+python main.py
+```
 
-Distribution
+Distribution (exe)
 ---
-
+1. Install NSIS

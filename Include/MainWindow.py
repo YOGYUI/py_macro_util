@@ -51,6 +51,7 @@ class MainWindow(QMainWindow):
     _thread_update_control: Union[ThreadUpdateControl, None] = None
 
     _mb_minimize_when_executing: QAction
+    _mb_always_on_top: QAction
     _prog: str = ""
 
     def __init__(self):
@@ -163,7 +164,11 @@ class MainWindow(QMainWindow):
         self._mb_minimize_when_executing = make_qaction(parent=self, text="Minimize when executing",
                                                         checkable=True,
                                                         triggered=self._onClickMenuMinimizeWhenExecuting)
+        self._mb_always_on_top = make_qaction(parent=self, text="Always on Top",
+                                              checkable=True, checked=False,
+                                              triggered=self._onClickMenuAlwaysOnTop)
         menu_option.addAction(self._mb_minimize_when_executing)
+        menu_option.addAction(self._mb_always_on_top)
 
         menu_about = QMenu("About", parent=menubar)
         menubar.addAction(menu_about.menuAction())
@@ -326,6 +331,15 @@ class MainWindow(QMainWindow):
         minimize_when_executing = self._core.config.get("minimize_when_executing", False)
         self._core.config["minimize_when_executing"] = not minimize_when_executing
 
+    def _onClickMenuAlwaysOnTop(self):
+        flag = int(self.windowFlags())
+        if self._mb_always_on_top.isChecked():
+            flag = flag | Qt.WindowType.WindowStaysOnTopHint
+        else:
+            flag = flag & ~Qt.WindowType.WindowStaysOnTopHint
+        self.setWindowFlags(Qt.WindowType(flag))
+        self.show()
+
     def _onTrayIconShowWindow(self):
         self.show()
         self.showNormal()
@@ -367,6 +381,8 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
+    import os
+    import sys
     from PySide6.QtWidgets import QApplication
     abspath = os.path.dirname(os.path.abspath(__file__))
     os.chdir(abspath)

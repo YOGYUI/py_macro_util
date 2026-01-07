@@ -137,13 +137,21 @@ class JobManagerWidget(QWidget):
         task_list = job.task_list
         self._table_task_list.setRowCount(len(task_list))
         for r, task in enumerate(task_list):
-            combo = self._table_task_list.cellWidget(r, 0)
-            if combo is None:
+            widget = self._table_task_list.cellWidget(r, 0)
+            if widget is None:
                 combo = QComboBox()
                 combo.addItems([x.name for x in TaskType][1:])
                 combo.currentIndexChanged.connect(partial(self._onComboTaskTypeIndexChanged, r))
                 combo.wheelEvent = self._onComboTaskTypeWheelEvent
-                self._table_task_list.setCellWidget(r, 0, combo)
+
+                widget = QWidget()
+                hbox = QHBoxLayout(widget)
+                hbox.setContentsMargins(2, 0, 2, 0)
+                hbox.setSpacing(0)
+                hbox.addWidget(combo)
+                self._table_task_list.setCellWidget(r, 0, widget)
+            else:
+                combo: QComboBox = widget.layout().itemAt(0).widget()
             combo.setCurrentIndex(task.type.value - 1)
 
             item = self._table_task_list.item(r, 1)
@@ -170,8 +178,10 @@ class JobManagerWidget(QWidget):
                     item.setText(f"({task.dx}, {task.dy})")
                 else:
                     item.setText(f"({task.pos_x}, {task.pos_y})")
-            elif isinstance(task, TaskKeySequence):
+            elif isinstance(task, TaskKeyboardSequence):
                 item.setText(task.to_string())
+            elif isinstance(task, TaskKeyboardString):
+                item.setText(task.string)
             elif isinstance(task, TaskSleep):
                 item.setText("{:g} sec".format(task.sleep_time_sec))
 
